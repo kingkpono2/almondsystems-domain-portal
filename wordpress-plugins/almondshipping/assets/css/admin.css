@@ -1,0 +1,15 @@
+.almondshipping-admin{max-width:1320px;}
+.almondshipping-hero{display:grid;grid-template-columns:minmax(0,1fr) 160px 160px;gap:16px;align-items:stretch;margin:20px 0;padding:24px;border:1px solid #d7e7df;border-radius:12px;background:linear-gradient(135deg,#f5fff9,#eaf7f0);}
+.almondshipping-kicker{margin:0 0 6px;color:#b58a21;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.almondshipping-hero h1{margin:0 0 8px;color:#063f2b;font-size:34px;line-height:1.1;}
+.almondshipping-hero p{max-width:760px;margin:0;color:#3f544b;font-size:15px;}
+.almondshipping-stat{display:flex;flex-direction:column;justify-content:center;align-items:center;border:1px solid #d7e7df;border-radius:10px;background:#fff;}
+.almondshipping-stat strong{color:#063f2b;font-size:34px;line-height:1;}
+.almondshipping-stat span{margin-top:8px;color:#50635b;font-weight:600;}
+.almondshipping-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.almondshipping-panel{padding:20px;border:1px solid #dcdcde;border-radius:10px;background:#fff;}
+.almondshipping-panel h2{margin:0 0 6px;color:#1d2327;}
+.almondshipping-panel p{margin:0 0 14px;color:#646970;}
+.almondshipping-panel textarea{width:100%;min-height:420px;font-family:Consolas,Monaco,monospace;font-size:13px;line-height:1.55;white-space:pre;}
+.almondshipping-actions{grid-column:1/-1;display:flex;gap:12px;align-items:center;margin-bottom:30px;}
+@media (max-width:960px){.almondshipping-hero,.almondshipping-grid{grid-template-columns:1fr}.almondshipping-stat{min-height:110px}.almondshipping-actions{flex-wrap:wrap}}

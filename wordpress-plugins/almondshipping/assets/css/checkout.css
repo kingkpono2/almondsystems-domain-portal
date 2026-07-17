@@ -1,0 +1,3 @@
+.almondshipping-area-field input.input-text{border-color:#d5e4dc;background:#fbfffd;}
+.almondshipping-area-field .description{color:#5d6b63;font-size:13px;line-height:1.45;margin-top:6px;}
+.woocommerce-checkout #billing_almondshipping_delivery_area:focus{border-color:#007a4d;box-shadow:0 0 0 2px rgba(0,122,77,.12);outline:none;}
