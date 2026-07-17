@@ -367,6 +367,7 @@ function CustomerPortal() {
       <footer className="portal-footer">
         <div className="footer-grid">
           <section>
+            <img className="footer-logo" src="/assets/logo/almond-logo-live.png?v=20260717b" onError={(event) => { event.currentTarget.src = '/assets/logo/almond-systems-logo.svg'; }} alt="Almond Systems" />
             <h2>Payment options</h2>
             <PaymentMarks />
             <p>Checkout is processed by Paystack. Supported card options include Visa, Mastercard, Verve, and eligible Amex cards, alongside bank transfer and other enabled local channels.</p>
