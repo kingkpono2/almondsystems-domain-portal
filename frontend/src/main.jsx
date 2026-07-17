@@ -575,8 +575,19 @@ function CustomerPortal() {
   );
 }
 
+function isFailureStatus(status) {
+  return ['registration-failed', 'payment-verification-failed', 'admin-hold'].includes(status);
+}
+
+function messageKind(text) {
+  const value = String(text || '').toLowerCase();
+  if (value.includes('failed') || value.includes('could not') || value.includes('invalid') || value.includes('error')) return 'error';
+  if (value.includes('loading') || value.includes('updating') || value.includes('approving')) return 'info';
+  return 'success';
+}
+
 function AdminPortal() {
-  const [adminKey, setAdminKey] = useState(() => localStorage.getItem('almond-domain-admin-key') || '');
+  const [adminKey, setAdminKey] = useState(localStorage.getItem('almond-domain-admin-key') || '');
   const [status, setStatus] = useState('all');
   const [orders, setOrders] = useState([]);
   const [message, setMessage] = useState('');
@@ -608,17 +619,72 @@ function AdminPortal() {
     try {
       const payload = await adminFetch(`/domains/api/admin/orders/${encodeURIComponent(order.orderId)}/${action}`, { method: 'POST', body: JSON.stringify({}) });
       setOrders((current) => current.map((item) => item.orderId === order.orderId ? payload.order : item));
-      setMessage(payload.order.message || 'Order updated.');
+      setMessage(payload.order.message || (isFailureStatus(payload.order.status) ? 'Approval failed. Review the order message.' : 'Order updated.'));
     } catch (error) { setMessage(error.message || 'Order update failed.'); }
     finally { setBusy(''); }
   }
 
   return (
     <main className="portal-shell admin-shell">
-      <header className="topbar static"><a className="back-link" href="/domains/"><ArrowLeft size={18} /> Customer portal</a><button className="support-link" type="button" onClick={() => loadOrders(status)}><RefreshCw size={17} /> Refresh</button></header>
-      <section className="admin-hero"><div><p className="eyebrow"><KeyRound size={15} /> Admin approval</p><h1>Domain orders</h1><p>Review paid orders, confirm payment state, and approve registration or transfer only when everything is correct.</p></div><form className="admin-login" onSubmit={(event) => { event.preventDefault(); loadOrders(status); }}><label>Admin key<input type="password" value={adminKey} onChange={(event) => setAdminKey(event.target.value)} placeholder="Enter admin key" /></label><button type="submit">Load orders</button></form></section>
-      <div className="admin-toolbar"><select value={status} onChange={(event) => { setStatus(event.target.value); loadOrders(event.target.value); }}>{orderStatuses.map((item) => <option value={item} key={item}>{statusLabel(item)}</option>)}</select>{message && <p className="status success">{message}</p>}</div>
-      <section className="admin-orders">{orders.map((order) => <article className="admin-order" key={order.orderId}><div className="admin-order-head"><div><span className={`admin-status ${order.status}`}>{statusLabel(order.status)}</span><h2>{order.domainName}</h2><p>{order.orderId} / {order.createdAt ? new Date(order.createdAt).toLocaleString() : 'No date'}</p></div><strong>{naira(order.payment?.amountNgn)}</strong></div>{order.items?.length ? <div className="admin-items">{order.items.map((item) => <span key={`${order.orderId}-${item.domainName}`}>{item.domainName} · {item.purchaseType}</span>)}</div> : null}<dl><div><dt>Customer</dt><dd>{order.customer?.name}<br />{order.customer?.email}<br />{order.customer?.phone}</dd></div><div><dt>Years</dt><dd>{order.years}</dd></div><div><dt>Payment</dt><dd>{order.payment?.confirmedAt ? `Confirmed ${new Date(order.payment.confirmedAt).toLocaleString()}` : statusLabel(order.status)}</dd></div><div><dt>Message</dt><dd>{order.message || 'No message'}</dd></div></dl>{order.customer?.notes && <p className="admin-note">{order.customer.notes}</p>}<div className="admin-actions"><button type="button" disabled={busy || order.status === 'registered'} onClick={() => orderAction(order, 'verify-payment')}>Verify payment</button><button type="button" disabled={busy || !['payment-confirmed-awaiting-approval', 'registration-failed', 'payment-pending'].includes(order.status)} onClick={() => orderAction(order, 'approve')}>Approve order</button><button type="button" disabled={busy || order.status === 'registered'} onClick={() => orderAction(order, 'hold')}>Hold</button></div></article>)}</section>
+      <header className="admin-topbar">
+        <a className="back-link" href="/domains/"><ArrowLeft size={18} /> Customer portal</a>
+        <button className="support-link" type="button" onClick={() => loadOrders(status)}><RefreshCw size={17} /> Refresh</button>
+      </header>
+
+      <section className="admin-hero">
+        <div className="admin-hero-copy">
+          <p className="eyebrow"><KeyRound size={15} /> Admin approval</p>
+          <h1>Domain orders</h1>
+          <p>Review paid orders, confirm payment state, and approve registration or transfer only when everything is correct.</p>
+        </div>
+        <form className="admin-login" onSubmit={(event) => { event.preventDefault(); loadOrders(status); }}>
+          <label>Admin key<input type="password" value={adminKey} onChange={(event) => setAdminKey(event.target.value)} placeholder="Enter admin key" /></label>
+          <button type="submit">Load orders</button>
+        </form>
+      </section>
+
+      <section className="admin-control-panel">
+        <label>
+          <span>Filter orders</span>
+          <select value={status} onChange={(event) => { setStatus(event.target.value); loadOrders(event.target.value); }}>
+            {orderStatuses.map((item) => <option value={item} key={item}>{statusLabel(item)}</option>)}
+          </select>
+        </label>
+        {message && <p className={`admin-message ${messageKind(message)}`}>{message}</p>}
+      </section>
+
+      <section className="admin-orders">
+        {orders.map((order) => (
+          <article className={`admin-order ${isFailureStatus(order.status) ? 'has-failure' : ''}`} key={order.orderId}>
+            <div className="admin-order-head">
+              <div>
+                <span className={`admin-status ${order.status}`}>{statusLabel(order.status)}</span>
+                <h2>{order.domainName}</h2>
+                <p>{order.orderId} / {order.createdAt ? new Date(order.createdAt).toLocaleString() : 'No date'}</p>
+              </div>
+              <strong>{naira(order.payment?.amountNgn)}</strong>
+            </div>
+
+            {order.items?.length ? <div className="admin-items">{order.items.map((item) => <span key={`${order.orderId}-${item.domainName}`}>{item.domainName} · {item.purchaseType}</span>)}</div> : null}
+
+            <dl>
+              <div><dt>Customer</dt><dd>{order.customer?.name}<br />{order.customer?.email}<br />{order.customer?.phone}</dd></div>
+              <div><dt>Years</dt><dd>{order.years}</dd></div>
+              <div><dt>Payment</dt><dd>{order.payment?.confirmedAt ? `Confirmed ${new Date(order.payment.confirmedAt).toLocaleString()}` : statusLabel(order.status)}</dd></div>
+              <div><dt>Message</dt><dd>{order.message || 'No message'}</dd></div>
+            </dl>
+
+            {order.customer?.notes && <p className="admin-note">{order.customer.notes}</p>}
+
+            <div className="admin-actions">
+              <button type="button" disabled={busy || order.status === 'registered'} onClick={() => orderAction(order, 'verify-payment')}>Verify payment</button>
+              <button type="button" disabled={busy || !['payment-confirmed-awaiting-approval', 'registration-failed', 'payment-pending'].includes(order.status)} onClick={() => orderAction(order, 'approve')}>Approve order</button>
+              <button type="button" disabled={busy || order.status === 'registered'} onClick={() => orderAction(order, 'hold')}>Hold</button>
+            </div>
+          </article>
+        ))}
+        {adminKey && !orders.length && <div className="admin-empty"><CheckCircle2 size={22} /><strong>No orders in this filter</strong><span>Try another status or refresh.</span></div>}
+      </section>
     </main>
   );
 }

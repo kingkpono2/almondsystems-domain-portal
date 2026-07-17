@@ -1160,7 +1160,8 @@ app.post('/domains/api/admin/orders/:reference/approve', adminLimiter, requireAd
     let order = await loadOrder(req.params.reference);
     if (order.status === 'payment-pending') order = await verifyPaidOrder(order.orderId);
     const registered = await registerApprovedOrder(order, 'admin');
-    res.json({ ok: ['registered', 'transfer-started', 'completed'].includes(registered.status), order: adminOrder(registered) });
+    const completed = ['registered', 'transfer-started', 'completed'].includes(registered.status);
+    res.json({ ok: true, completed, order: adminOrder(registered), message: registered.message });
   } catch (error) {
     next(error);
   }
