@@ -427,6 +427,92 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+async function requireUser(req, res, next) {
+  try {
+    const user = await currentUser(req);
+    if (!user) return res.status(401).json({ ok: false, message: 'Please log in to manage your domains.' });
+    req.user = user;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+const dnsTypes = new Set(['A', 'AAAA', 'ANAME', 'CNAME', 'MX', 'NS', 'SRV', 'TXT']);
+
+function cleanRecord(body) {
+  const type = String(body.type || '').trim().toUpperCase();
+  const host = String(body.host ?? '@').trim().replace(/\s+/g, '').slice(0, 120) || '@';
+  const answer = String(body.answer || '').trim().slice(0, 600);
+  const ttl = Math.max(300, Math.min(86400, Number(body.ttl || 3600)));
+  const priority = body.priority === '' || body.priority === null || body.priority === undefined ? undefined : Math.max(0, Math.min(65535, Number(body.priority || 0)));
+  if (!dnsTypes.has(type)) {
+    const error = new Error('Choose a valid DNS record type.');
+    error.status = 422;
+    throw error;
+  }
+  if (!answer) {
+    const error = new Error('DNS record value is required.');
+    error.status = 422;
+    throw error;
+  }
+  return { type, host, answer, ttl, ...(priority !== undefined && ['MX', 'SRV'].includes(type) ? { priority } : {}) };
+}
+
+function publicDomainDetail(domain, order = null) {
+  return {
+    domainName: domain.domainName,
+    createDate: domain.createDate || null,
+    expireDate: domain.expireDate || null,
+    autorenewEnabled: Boolean(domain.autorenewEnabled),
+    locked: Boolean(domain.locked),
+    privacyEnabled: Boolean(domain.privacyEnabled),
+    nameservers: domain.nameservers || [],
+    orderId: order?.orderId || null,
+    orderStatus: order?.status || null,
+    managedServices: ['DNS records', 'Nameservers', 'Domain lock', 'Autorenew status', 'WHOIS privacy status']
+  };
+}
+
+async function ownedDomainNamesForUser(user) {
+  const email = String(user?.email || '').toLowerCase();
+  const orders = await listOrders();
+  const allowedStatuses = new Set(['registered', 'transfer-started', 'completed']);
+  const map = new Map();
+  for (const order of orders) {
+    if (String(order.customer?.email || '').toLowerCase() !== email) continue;
+    if (!allowedStatuses.has(order.status)) continue;
+    const items = Array.isArray(order.items) && order.items.length ? order.items : [{ domainName: order.domainName }];
+    for (const item of items) {
+      const domainName = cleanDomain(item.domainName);
+      if (domainName && domainName.includes('.') && !domainName.includes(' + ')) map.set(domainName, order);
+    }
+  }
+  return map;
+}
+
+async function requireOwnedDomain(req, res, next) {
+  try {
+    const domainName = cleanDomain(req.params.domainName);
+    if (!domainName || !domainName.includes('.')) return res.status(422).json({ ok: false, message: 'Valid domain is required.' });
+    const domains = await ownedDomainNamesForUser(req.user);
+    const order = domains.get(domainName);
+    if (!order) return res.status(403).json({ ok: false, message: 'This domain is not available in your Almond Systems dashboard yet.' });
+    req.domainName = domainName;
+    req.domainOrder = order;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+function cleanNameservers(values) {
+  const list = (Array.isArray(values) ? values : String(values || '').split(/[\n,]+/))
+    .map((item) => cleanDomain(item))
+    .filter((item) => item && item.includes('.'));
+  return [...new Set(list)].slice(0, 8);
+}
+
 async function registrarRequest(method, endpoint, body, headers = {}) {
   if (!username || !token) {
     const error = new Error('Domain service is not configured yet.');
@@ -807,6 +893,108 @@ app.post('/domains/api/auth/logout', apiLimiter, async (req, res, next) => {
   try {
     await clearSession(req, res);
     res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+app.get('/domains/api/client/domains', apiLimiter, requireUser, async (req, res, next) => {
+  try {
+    const owned = await ownedDomainNamesForUser(req.user);
+    const domains = [];
+    for (const [domainName, order] of owned.entries()) {
+      try {
+        const detail = await registrarRequest('GET', `/core/v1/domains/${encodeURIComponent(domainName)}`);
+        domains.push(publicDomainDetail(detail, order));
+      } catch (error) {
+        domains.push({ domainName, orderId: order.orderId, orderStatus: order.status, unavailable: true, message: error.message || 'Domain details unavailable.' });
+      }
+    }
+    res.json({ ok: true, domains });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/domains/api/client/domains/:domainName', apiLimiter, requireUser, requireOwnedDomain, async (req, res, next) => {
+  try {
+    const detail = await registrarRequest('GET', `/core/v1/domains/${encodeURIComponent(req.domainName)}`);
+    res.json({ ok: true, domain: publicDomainDetail(detail, req.domainOrder) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+app.patch('/domains/api/client/domains/:domainName/settings', apiLimiter, requireUser, requireOwnedDomain, async (req, res, next) => {
+  try {
+    const allowed = ['autorenewEnabled', 'privacyEnabled', 'locked'];
+    const updates = {};
+    for (const field of allowed) {
+      if (typeof req.body[field] === 'boolean') updates[field] = req.body[field];
+    }
+    if (!Object.keys(updates).length) return res.status(422).json({ ok: false, message: 'Choose a domain setting to update.' });
+    const data = await registrarRequest('PATCH', `/core/v1/domains/${encodeURIComponent(req.domainName)}`, updates);
+    await appendAudit({ type: 'client_domain_settings_updated', userId: req.user.userId, domainName: req.domainName, updates });
+    res.json({ ok: true, domain: publicDomainDetail(data.domain || data, req.domainOrder) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/domains/api/client/domains/:domainName/records', apiLimiter, requireUser, requireOwnedDomain, async (req, res, next) => {
+  try {
+    const data = await registrarRequest('GET', `/core/v1/domains/${encodeURIComponent(req.domainName)}/records`);
+    res.json({ ok: true, records: data.records || [], totalCount: data.totalCount || 0 });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/domains/api/client/domains/:domainName/records', apiLimiter, requireUser, requireOwnedDomain, async (req, res, next) => {
+  try {
+    const record = cleanRecord(req.body);
+    const data = await registrarRequest('POST', `/core/v1/domains/${encodeURIComponent(req.domainName)}/records`, record);
+    await appendAudit({ type: 'client_dns_record_created', userId: req.user.userId, domainName: req.domainName, recordId: data.id });
+    res.status(201).json({ ok: true, record: data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put('/domains/api/client/domains/:domainName/records/:recordId', apiLimiter, requireUser, requireOwnedDomain, async (req, res, next) => {
+  try {
+    const recordId = Number(req.params.recordId);
+    if (!Number.isInteger(recordId) || recordId <= 0) return res.status(422).json({ ok: false, message: 'Valid DNS record ID is required.' });
+    const record = cleanRecord(req.body);
+    const data = await registrarRequest('PUT', `/core/v1/domains/${encodeURIComponent(req.domainName)}/records/${recordId}`, { ...record, id: recordId });
+    await appendAudit({ type: 'client_dns_record_updated', userId: req.user.userId, domainName: req.domainName, recordId });
+    res.json({ ok: true, record: data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/domains/api/client/domains/:domainName/records/:recordId', apiLimiter, requireUser, requireOwnedDomain, async (req, res, next) => {
+  try {
+    const recordId = Number(req.params.recordId);
+    if (!Number.isInteger(recordId) || recordId <= 0) return res.status(422).json({ ok: false, message: 'Valid DNS record ID is required.' });
+    await registrarRequest('DELETE', `/core/v1/domains/${encodeURIComponent(req.domainName)}/records/${recordId}`);
+    await appendAudit({ type: 'client_dns_record_deleted', userId: req.user.userId, domainName: req.domainName, recordId });
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/domains/api/client/domains/:domainName/nameservers', apiLimiter, requireUser, requireOwnedDomain, async (req, res, next) => {
+  try {
+    const nameservers = cleanNameservers(req.body.nameservers);
+    if (nameservers.length < 2) return res.status(422).json({ ok: false, message: 'Enter at least two valid nameservers.' });
+    const data = await registrarRequest('POST', `/core/v1/domains/${encodeURIComponent(req.domainName)}:setNameservers`, { nameservers });
+    await appendAudit({ type: 'client_nameservers_updated', userId: req.user.userId, domainName: req.domainName, nameservers });
+    res.json({ ok: true, domain: publicDomainDetail(data.domain || data, req.domainOrder), nameservers });
   } catch (error) {
     next(error);
   }

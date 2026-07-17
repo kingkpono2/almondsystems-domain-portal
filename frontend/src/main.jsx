@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowLeft, Check, CheckCircle2, CreditCard, Globe2, Headphones, KeyRound, Lock, LogOut, RefreshCw, Search, ShieldCheck, ShoppingCart, Sparkles, Trash2, User, X } from 'lucide-react';
+import { ArrowLeft, Check, CheckCircle2, CreditCard, Globe2, Headphones, KeyRound, Lock, LogOut, RefreshCw, Search, ShieldCheck, ShoppingCart, Sparkles, Trash2, User, X, Save, Pencil, ServerCog } from 'lucide-react';
 import './styles.css';
 
 const defaultTlds = ['com', 'com.ng', 'ng', 'net', 'org', 'africa', 'co', 'io'];
@@ -68,6 +68,13 @@ function CustomerPortal() {
   });
   const [form, setForm] = useState({ name: '', email: '', phone: '', business: '', notes: '' });
   const [authForm, setAuthForm] = useState(() => ({ name: '', email: new URLSearchParams(window.location.search).get('email') || '', password: '' }));
+  const [clientDomains, setClientDomains] = useState([]);
+  const [selectedDomain, setSelectedDomain] = useState(null);
+  const [dnsRecords, setDnsRecords] = useState([]);
+  const [dashboardMessage, setDashboardMessage] = useState('');
+  const [dnsForm, setDnsForm] = useState({ type: 'A', host: '@', answer: '', ttl: 3600, priority: '' });
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [nameserverText, setNameserverText] = useState('');
 
   const availableResults = useMemo(() => results.filter((item) => item.purchasable), [results]);
   const unavailableResults = useMemo(() => results.filter((item) => !item.purchasable), [results]);
@@ -92,6 +99,15 @@ function CustomerPortal() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (user) loadClientDomains();
+    else {
+      setClientDomains([]);
+      setSelectedDomain(null);
+      setDnsRecords([]);
+    }
+  }, [user]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -204,6 +220,93 @@ function CustomerPortal() {
     setUser(null);
   }
 
+  async function clientFetch(path, options = {}) {
+    const response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || 'Request failed.');
+    return payload;
+  }
+
+  async function loadClientDomains() {
+    setDashboardMessage('Loading your managed domains...');
+    try {
+      const payload = await clientFetch('/domains/api/client/domains');
+      const domains = payload.domains || [];
+      setClientDomains(domains);
+      setDashboardMessage(domains.length ? `${domains.length} managed domain${domains.length === 1 ? '' : 's'} loaded.` : 'Paid and approved domains will appear here.');
+      if (domains.length) await selectClientDomain(domains[0]);
+      else { setSelectedDomain(null); setDnsRecords([]); }
+    } catch (error) { setDashboardMessage(error.message || 'Could not load dashboard.'); }
+  }
+
+  async function selectClientDomain(domain) {
+    setSelectedDomain(domain);
+    setNameserverText((domain.nameservers || []).join('\n'));
+    setDashboardMessage(`Loading DNS records for ${domain.domainName}...`);
+    try {
+      const payload = await clientFetch(`/domains/api/client/domains/${encodeURIComponent(domain.domainName)}/records`);
+      setDnsRecords(payload.records || []);
+      setDashboardMessage(`${domain.domainName} DNS records loaded.`);
+    } catch (error) { setDnsRecords([]); setDashboardMessage(error.message || 'Could not load DNS records.'); }
+  }
+
+  function editDnsRecord(record) {
+    setEditingRecord(record);
+    setDnsForm({ type: record.type || 'A', host: record.host || '@', answer: record.answer || '', ttl: record.ttl || 3600, priority: record.priority ?? '' });
+  }
+
+  function resetDnsForm() {
+    setEditingRecord(null);
+    setDnsForm({ type: 'A', host: '@', answer: '', ttl: 3600, priority: '' });
+  }
+
+  async function saveDnsRecord(event) {
+    event.preventDefault();
+    if (!selectedDomain) return;
+    setDashboardMessage(editingRecord ? 'Updating DNS record...' : 'Creating DNS record...');
+    try {
+      const endpoint = `/domains/api/client/domains/${encodeURIComponent(selectedDomain.domainName)}/records${editingRecord ? `/${editingRecord.id}` : ''}`;
+      await clientFetch(endpoint, { method: editingRecord ? 'PUT' : 'POST', body: JSON.stringify(dnsForm) });
+      resetDnsForm();
+      await selectClientDomain(selectedDomain);
+      setDashboardMessage('DNS record saved.');
+    } catch (error) { setDashboardMessage(error.message || 'Could not save DNS record.'); }
+  }
+
+  async function deleteDnsRecord(record) {
+    if (!selectedDomain) return;
+    setDashboardMessage(`Deleting ${record.type} record...`);
+    try {
+      await clientFetch(`/domains/api/client/domains/${encodeURIComponent(selectedDomain.domainName)}/records/${record.id}`, { method: 'DELETE' });
+      await selectClientDomain(selectedDomain);
+      setDashboardMessage('DNS record deleted.');
+    } catch (error) { setDashboardMessage(error.message || 'Could not delete DNS record.'); }
+  }
+
+  async function updateDomainSettings(field, value) {
+    if (!selectedDomain) return;
+    const labels = { locked: 'transfer lock', autorenewEnabled: 'autorenew', privacyEnabled: 'privacy' };
+    setDashboardMessage(`Updating ${labels[field] || 'domain setting'}...`);
+    try {
+      const data = await clientFetch(`/domains/api/client/domains/${encodeURIComponent(selectedDomain.domainName)}/settings`, { method: 'PATCH', body: JSON.stringify({ [field]: value }) });
+      setSelectedDomain(data.domain);
+      setClientDomains((domains) => domains.map((domain) => domain.domainName === data.domain.domainName ? data.domain : domain));
+      setNameserverText((data.domain.nameservers || []).join('\n'));
+      setDashboardMessage('Domain setting updated.');
+    } catch (error) { setDashboardMessage(error.message || 'Could not update domain setting.'); }
+  }
+
+  async function saveNameservers(event) {
+    event.preventDefault();
+    if (!selectedDomain) return;
+    setDashboardMessage('Updating nameservers...');
+    try {
+      await clientFetch(`/domains/api/client/domains/${encodeURIComponent(selectedDomain.domainName)}/nameservers`, { method: 'POST', body: JSON.stringify({ nameservers: nameserverText.split(/\n|,/).map((item) => item.trim()).filter(Boolean) }) });
+      await loadClientDomains();
+      setDashboardMessage('Nameservers updated. DNS changes can take time to propagate.');
+    } catch (error) { setDashboardMessage(error.message || 'Could not update nameservers.'); }
+  }
+
   async function placeOrder(event) {
     event.preventDefault();
     if (!cartItems.length) {
@@ -248,6 +351,7 @@ function CustomerPortal() {
         <nav className="top-actions" aria-label="Domain portal navigation">
           <a href="#domains">Domains</a>
           <a href="#how-it-works">Hosting</a>
+          <a href="#client-dashboard">Dashboard</a>
           <a href="/downloads/">Downloads</a>
           <button className="icon-action" type="button" onClick={() => setCartOpen(true)} aria-label="Open cart">
             <ShoppingCart size={19} />
@@ -345,6 +449,54 @@ function CustomerPortal() {
           </form>
         ) : (
           <div className="checkout-placeholder"><Globe2 size={34} /><span>Select an available result and add it to your cart.</span></div>
+        )}
+      </section>
+
+      <section id="client-dashboard" className="client-dashboard">
+        <div className="dashboard-head">
+          <div><p className="eyebrow"><ServerCog size={15} /> Client dashboard</p><h2>Manage domains quietly.</h2></div>
+          <button className="ghost-button" type="button" onClick={() => user ? loadClientDomains() : setAuthOpen(true)}><RefreshCw size={16} /> Refresh</button>
+        </div>
+        {!user ? (
+          <div className="dashboard-empty"><Lock size={24} /><strong>Login to manage domains</strong><span>DNS, nameservers, renewals, and service actions appear after your paid order is approved.</span><button type="button" onClick={() => setAuthOpen(true)}>Login / Sign up</button></div>
+        ) : (
+          <div className="dashboard-grid">
+            <aside className="domain-list">
+              {clientDomains.length ? clientDomains.map((domain) => (
+                <button type="button" key={domain.domainName} className={selectedDomain?.domainName === domain.domainName ? 'active' : ''} onClick={() => selectClientDomain(domain)}>
+                  <Globe2 size={18} /><span><strong>{domain.domainName}</strong><small>{domain.expireDate ? `Expires ${new Date(domain.expireDate).toLocaleDateString()}` : statusLabel(domain.orderStatus || 'managed')}</small></span>
+                </button>
+              )) : <p className="muted-note">Approved domains will show here.</p>}
+            </aside>
+            <div className="dns-workspace">
+              {dashboardMessage && <p className="dashboard-message">{dashboardMessage}</p>}
+              {selectedDomain ? (
+                <>
+                  <div className="domain-summary" aria-label="Domain service controls">
+                    <button type="button" onClick={() => updateDomainSettings('locked', !selectedDomain.locked)}><ShieldCheck size={15} /> {selectedDomain.locked ? 'Locked' : 'Unlocked'}</button>
+                    <button type="button" onClick={() => updateDomainSettings('autorenewEnabled', !selectedDomain.autorenewEnabled)}><RefreshCw size={15} /> {selectedDomain.autorenewEnabled ? 'Autorenew on' : 'Autorenew off'}</button>
+                    <button type="button" onClick={() => updateDomainSettings('privacyEnabled', !selectedDomain.privacyEnabled)}><CheckCircle2 size={15} /> {selectedDomain.privacyEnabled ? 'Privacy on' : 'Privacy off'}</button>
+                  </div>
+                  <form className="dns-form" onSubmit={saveDnsRecord}>
+                    <select value={dnsForm.type} onChange={(e) => setDnsForm({ ...dnsForm, type: e.target.value })}>{['A','AAAA','CNAME','MX','TXT','NS','SRV','ANAME'].map((type) => <option key={type}>{type}</option>)}</select>
+                    <input value={dnsForm.host} onChange={(e) => setDnsForm({ ...dnsForm, host: e.target.value })} placeholder="@ or host" />
+                    <input className="dns-answer" value={dnsForm.answer} onChange={(e) => setDnsForm({ ...dnsForm, answer: e.target.value })} placeholder="IP, target, or TXT value" />
+                    <input type="number" value={dnsForm.ttl} onChange={(e) => setDnsForm({ ...dnsForm, ttl: e.target.value })} placeholder="TTL" />
+                    <input type="number" value={dnsForm.priority} onChange={(e) => setDnsForm({ ...dnsForm, priority: e.target.value })} placeholder="Priority" />
+                    <button type="submit"><Save size={16} /> {editingRecord ? 'Update' : 'Add'}</button>
+                    {editingRecord && <button type="button" className="light-action" onClick={resetDnsForm}>Cancel</button>}
+                  </form>
+                  <div className="dns-table">
+                    {dnsRecords.length ? dnsRecords.map((record) => <article key={record.id}><span className="record-type">{record.type}</span><strong>{record.host || '@'}</strong><code>{record.answer}</code><small>TTL {record.ttl || 3600}{record.priority !== undefined ? ` · Priority ${record.priority}` : ''}</small><button type="button" onClick={() => editDnsRecord(record)}><Pencil size={15} /></button><button type="button" onClick={() => deleteDnsRecord(record)}><Trash2 size={15} /></button></article>) : <p className="muted-note">No DNS records returned for this zone.</p>}
+                  </div>
+                  <form className="nameserver-panel" onSubmit={saveNameservers}>
+                    <label>Nameservers<textarea value={nameserverText} onChange={(e) => setNameserverText(e.target.value)} placeholder="ns1.example.com\nns2.example.com" /></label>
+                    <button type="submit"><ServerCog size={16} /> Save nameservers</button>
+                  </form>
+                </>
+              ) : <div className="dashboard-empty"><Globe2 size={24} /><strong>No managed domains yet</strong><span>Once payment is approved and registration/transfer is completed, domains appear here.</span></div>}
+            </div>
+          </div>
         )}
       </section>
 
