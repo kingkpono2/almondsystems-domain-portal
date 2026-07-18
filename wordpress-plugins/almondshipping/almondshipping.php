@@ -11,7 +11,7 @@
  * Author URI: https://almondsystems.com.ng/
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain: almondshipping
+ * Text Domain: almondshipping-nigerian-shipping-rates
  * Domain Path: /languages
  * Requires Plugins: woocommerce
  */
@@ -52,7 +52,7 @@ final class AlmondShipping_Plugin {
     }
 
     public function load_textdomain(): void {
-        load_plugin_textdomain('almondshipping', false, dirname(plugin_basename(__FILE__)) . '/languages');
+        load_plugin_textdomain('almondshipping-nigerian-shipping-rates', false, dirname(plugin_basename(__FILE__)) . '/languages');
     }
 
     public function declare_wc_compatibility(): void {
@@ -245,12 +245,12 @@ final class AlmondShipping_Plugin {
     public function add_checkout_fields(array $fields): array {
         $fields['billing']['billing_almondshipping_delivery_area'] = array(
             'type' => 'text',
-            'label' => __('Delivery city / area', 'almondshipping'),
+            'label' => __('Delivery city / area', 'almondshipping-nigerian-shipping-rates'),
             'required' => false,
             'class' => array('form-row-wide', 'almondshipping-area-field'),
             'priority' => 82,
-            'placeholder' => __('Start typing Mile 2, Ikeja, Lekki, Abuja...', 'almondshipping'),
-            'description' => __('For Lagos deliveries, choose the closest matching area so AlmondShipping can apply the correct rate.', 'almondshipping'),
+            'placeholder' => __('Start typing Mile 2, Ikeja, Lekki, Abuja...', 'almondshipping-nigerian-shipping-rates'),
+            'description' => __('For Lagos deliveries, choose the closest matching area so AlmondShipping can apply the correct rate.', 'almondshipping-nigerian-shipping-rates'),
             'custom_attributes' => array('list' => 'almondshipping-delivery-areas', 'autocomplete' => 'off'),
         );
         return $fields;
@@ -262,7 +262,7 @@ final class AlmondShipping_Plugin {
             echo '<option value="' . esc_attr($rate['label']) . '">' . esc_html(wp_strip_all_tags(wc_price($rate['amount']))) . '</option>';
         }
         foreach (self::rates('state') as $rate) {
-            echo '<option value="' . esc_attr($rate['label']) . '">' . esc_html__('State delivery', 'almondshipping') . '</option>';
+            echo '<option value="' . esc_attr($rate['label']) . '">' . esc_html__('State delivery', 'almondshipping-nigerian-shipping-rates') . '</option>';
         }
         echo '</datalist>';
     }
@@ -283,11 +283,11 @@ final class AlmondShipping_Plugin {
         }
         $area = sanitize_text_field($data['billing_almondshipping_delivery_area'] ?? '');
         if ('' === $area) {
-            $errors->add('almondshipping_area_required', __('Please enter your Lagos delivery city or area.', 'almondshipping'));
+            $errors->add('almondshipping_area_required', __('Please enter your Lagos delivery city or area.', 'almondshipping-nigerian-shipping-rates'));
             return;
         }
         if (!self::match_lagos_area($area)) {
-            $errors->add('almondshipping_area_match', __('Please choose a Lagos delivery area from the AlmondShipping suggestions.', 'almondshipping'));
+            $errors->add('almondshipping_area_match', __('Please choose a Lagos delivery area from the AlmondShipping suggestions.', 'almondshipping-nigerian-shipping-rates'));
         }
     }
 
@@ -307,7 +307,7 @@ final class AlmondShipping_Plugin {
     }
 
     public function register_admin_menu(): void {
-        add_submenu_page('woocommerce', __('AlmondShipping Rates', 'almondshipping'), __('AlmondShipping', 'almondshipping'), 'manage_woocommerce', 'almondshipping', array($this, 'render_admin_page'));
+        add_submenu_page('woocommerce', __('AlmondShipping Rates', 'almondshipping-nigerian-shipping-rates'), __('AlmondShipping', 'almondshipping-nigerian-shipping-rates'), 'manage_woocommerce', 'almondshipping', array($this, 'render_admin_page'));
     }
 
     public function enqueue_admin_assets(string $hook): void {
@@ -333,11 +333,11 @@ final class AlmondShipping_Plugin {
             $action = sanitize_text_field(wp_unslash($_POST['almondshipping_action']));
             if ('reset' === $action) {
                 self::seed_rates(true);
-                echo '<div class="notice notice-success"><p>' . esc_html__('AlmondShipping default Nigerian rates restored.', 'almondshipping') . '</p></div>';
+                echo '<div class="notice notice-success"><p>' . esc_html__('AlmondShipping default Nigerian rates restored.', 'almondshipping-nigerian-shipping-rates') . '</p></div>';
             } else {
                 self::replace_rates('lagos_area', self::parse_rate_lines((string) wp_unslash($_POST['lagos_rates'] ?? ''), 'lagos_area'));
                 self::replace_rates('state', self::parse_rate_lines((string) wp_unslash($_POST['state_rates'] ?? ''), 'state'));
-                echo '<div class="notice notice-success"><p>' . esc_html__('AlmondShipping rates saved.', 'almondshipping') . '</p></div>';
+                echo '<div class="notice notice-success"><p>' . esc_html__('AlmondShipping rates saved.', 'almondshipping-nigerian-shipping-rates') . '</p></div>';
             }
         }
         $lagos_rates = self::rates('lagos_area');
@@ -346,29 +346,29 @@ final class AlmondShipping_Plugin {
         <div class="wrap almondshipping-admin">
             <div class="almondshipping-hero">
                 <div>
-                    <p class="almondshipping-kicker"><?php esc_html_e('Nigerian delivery pricing', 'almondshipping'); ?></p>
-                    <h1><?php esc_html_e('AlmondShipping', 'almondshipping'); ?></h1>
-                    <p><?php esc_html_e('Manage WooCommerce shipping rates for Lagos areas and Nigerian states. Mile 2 is seeded as the central Lagos base point.', 'almondshipping'); ?></p>
+                    <p class="almondshipping-kicker"><?php esc_html_e('Nigerian delivery pricing', 'almondshipping-nigerian-shipping-rates'); ?></p>
+                    <h1><?php esc_html_e('AlmondShipping', 'almondshipping-nigerian-shipping-rates'); ?></h1>
+                    <p><?php esc_html_e('Manage WooCommerce shipping rates for Lagos areas and Nigerian states. Mile 2 is seeded as the central Lagos base point.', 'almondshipping-nigerian-shipping-rates'); ?></p>
                 </div>
-                <div class="almondshipping-stat"><strong><?php echo esc_html(count($lagos_rates)); ?></strong><span><?php esc_html_e('Lagos areas', 'almondshipping'); ?></span></div>
-                <div class="almondshipping-stat"><strong><?php echo esc_html(count($state_rates)); ?></strong><span><?php esc_html_e('State rates', 'almondshipping'); ?></span></div>
+                <div class="almondshipping-stat"><strong><?php echo esc_html(count($lagos_rates)); ?></strong><span><?php esc_html_e('Lagos areas', 'almondshipping-nigerian-shipping-rates'); ?></span></div>
+                <div class="almondshipping-stat"><strong><?php echo esc_html(count($state_rates)); ?></strong><span><?php esc_html_e('State rates', 'almondshipping-nigerian-shipping-rates'); ?></span></div>
             </div>
             <form method="post" class="almondshipping-grid">
                 <?php wp_nonce_field('almondshipping_save_rates', 'almondshipping_nonce'); ?>
                 <input type="hidden" name="almondshipping_action" value="save" />
                 <section class="almondshipping-panel">
-                    <h2><?php esc_html_e('Lagos city and area rates', 'almondshipping'); ?></h2>
-                    <p><?php esc_html_e('One entry per line. Use Area=Rate. Customers see these in the checkout autosuggest field.', 'almondshipping'); ?></p>
+                    <h2><?php esc_html_e('Lagos city and area rates', 'almondshipping-nigerian-shipping-rates'); ?></h2>
+                    <p><?php esc_html_e('One entry per line. Use Area=Rate. Customers see these in the checkout autosuggest field.', 'almondshipping-nigerian-shipping-rates'); ?></p>
                     <textarea name="lagos_rates" spellcheck="false"><?php echo esc_textarea($this->rates_to_lines('lagos_area')); ?></textarea>
                 </section>
                 <section class="almondshipping-panel">
-                    <h2><?php esc_html_e('Other Nigerian state rates', 'almondshipping'); ?></h2>
-                    <p><?php esc_html_e('One entry per line. Use WooCommerce state code=Rate, for example FC=6000.', 'almondshipping'); ?></p>
+                    <h2><?php esc_html_e('Other Nigerian state rates', 'almondshipping-nigerian-shipping-rates'); ?></h2>
+                    <p><?php esc_html_e('One entry per line. Use WooCommerce state code=Rate, for example FC=6000.', 'almondshipping-nigerian-shipping-rates'); ?></p>
                     <textarea name="state_rates" spellcheck="false"><?php echo esc_textarea($this->rates_to_lines('state')); ?></textarea>
                 </section>
                 <div class="almondshipping-actions">
-                    <button type="submit" class="button button-primary button-hero"><?php esc_html_e('Save rates', 'almondshipping'); ?></button>
-                    <button type="submit" name="almondshipping_action" value="reset" class="button button-secondary" onclick="return confirm('<?php echo esc_js(__('Restore the seeded Nigerian rates?', 'almondshipping')); ?>')"><?php esc_html_e('Restore defaults', 'almondshipping'); ?></button>
+                    <button type="submit" class="button button-primary button-hero"><?php esc_html_e('Save rates', 'almondshipping-nigerian-shipping-rates'); ?></button>
+                    <button type="submit" name="almondshipping_action" value="reset" class="button button-secondary" onclick="return confirm('<?php echo esc_js(__('Restore the seeded Nigerian rates?', 'almondshipping-nigerian-shipping-rates')); ?>')"><?php esc_html_e('Restore defaults', 'almondshipping-nigerian-shipping-rates'); ?></button>
                 </div>
             </form>
         </div>
@@ -387,8 +387,8 @@ function almondshipping_load_shipping_methods(): void {
         public function __construct($instance_id = 0) {
             $this->id = $this->method_id;
             $this->instance_id = absint($instance_id);
-            $this->method_title = __('AlmondShipping', 'almondshipping');
-            $this->method_description = __('Nigerian delivery rates with Mile 2 as the Lagos base point and configurable state pricing.', 'almondshipping');
+            $this->method_title = __('AlmondShipping', 'almondshipping-nigerian-shipping-rates');
+            $this->method_description = __('Nigerian delivery rates with Mile 2 as the Lagos base point and configurable state pricing.', 'almondshipping-nigerian-shipping-rates');
             $this->supports = array('shipping-zones', 'instance-settings', 'instance-settings-modal');
             $this->init();
         }
@@ -397,17 +397,17 @@ function almondshipping_load_shipping_methods(): void {
             $this->init_form_fields();
             $this->init_settings();
             $this->enabled = $this->get_option('enabled', 'yes');
-            $this->title = $this->get_option('title', __('AlmondShipping', 'almondshipping'));
+            $this->title = $this->get_option('title', __('AlmondShipping', 'almondshipping-nigerian-shipping-rates'));
             add_action('woocommerce_update_options_shipping_' . $this->id, array($this, 'process_admin_options'));
         }
 
         public function init_form_fields(): void {
             $this->instance_form_fields = array(
-                'enabled' => array('title' => __('Enable', 'almondshipping'), 'type' => 'checkbox', 'label' => __('Enable AlmondShipping delivery rates', 'almondshipping'), 'default' => 'yes'),
-                'title' => array('title' => __('Checkout label', 'almondshipping'), 'type' => 'text', 'description' => __('Shown to customers as the shipping method name at checkout.', 'almondshipping'), 'default' => __('AlmondShipping', 'almondshipping'), 'desc_tip' => true),
-                'lagos_rate' => array('title' => __('Lagos fallback rate', 'almondshipping'), 'type' => 'number', 'custom_attributes' => array('step' => '1', 'min' => '0'), 'default' => '3000', 'description' => __('Used when Lagos is selected before a matching city or area is chosen.', 'almondshipping')),
-                'outside_lagos_rate' => array('title' => __('Other states fallback rate', 'almondshipping'), 'type' => 'number', 'custom_attributes' => array('step' => '1', 'min' => '0'), 'default' => '6000', 'description' => __('Used when a Nigerian state has no configured override.', 'almondshipping')),
-                'tax_status' => array('title' => __('Tax status', 'almondshipping'), 'type' => 'select', 'class' => 'wc-enhanced-select', 'default' => 'taxable', 'options' => array('taxable' => __('Taxable', 'almondshipping'), 'none' => _x('None', 'Tax status', 'almondshipping'))),
+                'enabled' => array('title' => __('Enable', 'almondshipping-nigerian-shipping-rates'), 'type' => 'checkbox', 'label' => __('Enable AlmondShipping delivery rates', 'almondshipping-nigerian-shipping-rates'), 'default' => 'yes'),
+                'title' => array('title' => __('Checkout label', 'almondshipping-nigerian-shipping-rates'), 'type' => 'text', 'description' => __('Shown to customers as the shipping method name at checkout.', 'almondshipping-nigerian-shipping-rates'), 'default' => __('AlmondShipping', 'almondshipping-nigerian-shipping-rates'), 'desc_tip' => true),
+                'lagos_rate' => array('title' => __('Lagos fallback rate', 'almondshipping-nigerian-shipping-rates'), 'type' => 'number', 'custom_attributes' => array('step' => '1', 'min' => '0'), 'default' => '3000', 'description' => __('Used when Lagos is selected before a matching city or area is chosen.', 'almondshipping-nigerian-shipping-rates')),
+                'outside_lagos_rate' => array('title' => __('Other states fallback rate', 'almondshipping-nigerian-shipping-rates'), 'type' => 'number', 'custom_attributes' => array('step' => '1', 'min' => '0'), 'default' => '6000', 'description' => __('Used when a Nigerian state has no configured override.', 'almondshipping-nigerian-shipping-rates')),
+                'tax_status' => array('title' => __('Tax status', 'almondshipping-nigerian-shipping-rates'), 'type' => 'select', 'class' => 'wc-enhanced-select', 'default' => 'taxable', 'options' => array('taxable' => __('Taxable', 'almondshipping-nigerian-shipping-rates'), 'none' => _x('None', 'Tax status', 'almondshipping-nigerian-shipping-rates'))),
             );
             $this->form_fields = $this->instance_form_fields;
         }
@@ -441,7 +441,7 @@ function almondshipping_load_shipping_methods(): void {
                 $area = AlmondShipping_Plugin::match_lagos_area($this->selected_area());
                 if ($area) {
                     $cost = (float) $area['amount'];
-                    $label = sprintf(__('%1$s to Lagos - %2$s', 'almondshipping'), $this->title, $area['label']);
+                    $label = sprintf(__('%1$s to Lagos - %2$s', 'almondshipping-nigerian-shipping-rates'), $this->title, $area['label']);
                 }
             } else {
                 foreach (AlmondShipping_Plugin::rates('state') as $rate) {
@@ -450,7 +450,7 @@ function almondshipping_load_shipping_methods(): void {
                         break;
                     }
                 }
-                $label = sprintf(__('%1$s to %2$s', 'almondshipping'), $this->title, AlmondShipping_Plugin::state_label($state));
+                $label = sprintf(__('%1$s to %2$s', 'almondshipping-nigerian-shipping-rates'), $this->title, AlmondShipping_Plugin::state_label($state));
             }
             $this->add_rate(array('id' => $this->get_rate_id(), 'label' => $label, 'cost' => max(0, $cost), 'calc_tax' => 'per_order'));
         }
