@@ -158,23 +158,22 @@ final class AlmondShipping_Plugin {
     public static function rates(string $type, bool $enabled_only = true): array {
         global $wpdb;
         $cache_key = 'rates_' . md5($type . '|' . (int) $enabled_only);
-        $cached = wp_cache_get($cache_key, 'almondshipping');
-        if (false !== $cached) {
-            return is_array($cached) ? $cached : array();
+        $rows = wp_cache_get($cache_key, 'almondshipping');
+
+        if (false === $rows) {
+            $table = self::table_name();
+            if ($enabled_only) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Reading the plugin-owned custom rates table after an object-cache miss.
+                $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i WHERE rate_type = %s AND enabled = %d ORDER BY sort_order ASC, label ASC', $table, $type, 1), ARRAY_A);
+            } else {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Reading the plugin-owned custom rates table after an object-cache miss.
+                $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i WHERE rate_type = %s ORDER BY sort_order ASC, label ASC', $table, $type), ARRAY_A);
+            }
+            $rows = is_array($rows) ? $rows : array();
+            wp_cache_set($cache_key, $rows, 'almondshipping', MINUTE_IN_SECONDS);
         }
 
-        $table = self::table_name();
-        if ($enabled_only) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Reading the plugin-owned custom rates table with object-cache coverage.
-            $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i WHERE rate_type = %s AND enabled = %d ORDER BY sort_order ASC, label ASC', $table, $type, 1), ARRAY_A);
-        } else {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Reading the plugin-owned custom rates table with object-cache coverage.
-            $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i WHERE rate_type = %s ORDER BY sort_order ASC, label ASC', $table, $type), ARRAY_A);
-        }
-
-        $rows = is_array($rows) ? $rows : array();
-        wp_cache_set($cache_key, $rows, 'almondshipping', MINUTE_IN_SECONDS);
-        return $rows;
+        return is_array($rows) ? $rows : array();
     }
 
     private static function flush_rates_cache(): void {
