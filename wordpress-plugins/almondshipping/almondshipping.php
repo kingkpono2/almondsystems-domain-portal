@@ -204,14 +204,17 @@ final class AlmondShipping_Plugin {
     public static function replace_rates(string $type, array $items): void {
         global $wpdb;
         $table = self::table_name();
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Updating the plugin-owned custom rates table from the admin rate editor.
+        wp_cache_delete('rates_' . md5($type . '|1'), 'almondshipping');
+        wp_cache_delete('rates_' . md5($type . '|0'), 'almondshipping');
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Updating the plugin-owned custom rates table and invalidating its object-cache entries.
         $wpdb->delete($table, array('rate_type' => $type), array('%s'));
         $now = current_time('mysql');
         foreach ($items as $order => $item) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Updating the plugin-owned custom rates table from the admin rate editor.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Updating the plugin-owned custom rates table and invalidating its object-cache entries.
             $wpdb->insert($table, array('rate_type' => $type, 'code' => sanitize_text_field($item['code']), 'label' => sanitize_text_field($item['label']), 'amount' => (float) $item['amount'], 'enabled' => 1, 'sort_order' => (int) $order, 'created_at' => $now, 'updated_at' => $now));
         }
-        self::flush_rates_cache();
+        wp_cache_delete('rates_' . md5($type . '|1'), 'almondshipping');
+        wp_cache_delete('rates_' . md5($type . '|0'), 'almondshipping');
     }
 
     public static function match_lagos_area(string $value): ?array {
