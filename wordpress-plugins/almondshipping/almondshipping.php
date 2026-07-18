@@ -1,7 +1,6 @@
 <?php
 /**
  * Plugin Name: AlmondShipping - Nigerian Shipping Rates
- * Plugin URI: https://almondsystems.com.ng/
  * Description: Market-ready WooCommerce shipping method for Nigerian delivery rates with Mile 2 based Lagos pricing, state rates, admin management, and checkout area autosuggest.
  * Version: 1.0.0
  * Requires at least: 6.0
