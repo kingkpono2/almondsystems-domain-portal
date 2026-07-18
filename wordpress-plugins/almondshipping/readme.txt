@@ -1,14 +1,14 @@
 === AlmondShipping - Nigerian Shipping Rates ===
 Contributors: almondsystems
 Tags: woocommerce, shipping, nigeria, delivery, lagos
-Requires at least: 6.0
+Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-AlmondShipping adds market-ready Nigerian delivery rates to WooCommerce, including Mile 2 based Lagos pricing, Nigerian state rates, checkout autosuggest, and admin rate management.
+Nigerian WooCommerce shipping rates with Lagos area pricing, state rates, checkout autosuggest, and admin management.
 
 == Description ==
 

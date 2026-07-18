@@ -3,7 +3,7 @@
  * Plugin Name: AlmondShipping - Nigerian Shipping Rates
  * Description: Market-ready WooCommerce shipping method for Nigerian delivery rates with Mile 2 based Lagos pricing, state rates, admin management, and checkout area autosuggest.
  * Version: 1.0.0
- * Requires at least: 6.0
+ * Requires at least: 6.2
  * Requires PHP: 7.4
  * WC requires at least: 7.0
  * WC tested up to: 9.9
@@ -36,7 +36,6 @@ final class AlmondShipping_Plugin {
     }
 
     private function __construct() {
-        add_action('plugins_loaded', array($this, 'load_textdomain'));
         add_action('before_woocommerce_init', array($this, 'declare_wc_compatibility'));
         add_filter('woocommerce_shipping_methods', array($this, 'register_shipping_methods'));
         add_action('woocommerce_init', array($this, 'maybe_bootstrap_shipping_zone'));
@@ -49,10 +48,6 @@ final class AlmondShipping_Plugin {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_checkout_assets'));
         add_action('admin_menu', array($this, 'register_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
-    }
-
-    public function load_textdomain(): void {
-        load_plugin_textdomain('almondshipping-nigerian-shipping-rates', false, dirname(plugin_basename(__FILE__)) . '/languages');
     }
 
     public function declare_wc_compatibility(): void {
@@ -72,6 +67,7 @@ final class AlmondShipping_Plugin {
         self::seed_rates(false);
         update_option('almondshipping_version', ALMONDSHIPPING_VERSION, false);
         update_option('almondshipping_bootstrap_zone', 'yes', false);
+        self::flush_rates_cache();
     }
 
     public static function migrate(): void {
@@ -122,22 +118,27 @@ final class AlmondShipping_Plugin {
     public static function seed_rates(bool $force = false): void {
         global $wpdb;
         $table = self::table_name();
-        $exists = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}");
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Activation seeds a plugin-owned custom rates table.
+        $exists = (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i', $table));
         if ($exists > 0 && !$force) {
             return;
         }
         if ($force) {
-            $wpdb->query("TRUNCATE TABLE {$table}");
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Resetting the plugin-owned custom rates table.
+            $wpdb->query($wpdb->prepare('TRUNCATE TABLE %i', $table));
         }
         $now = current_time('mysql');
         $order = 0;
         foreach (self::default_lagos_rates() as $label => $amount) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Seeding the plugin-owned custom rates table.
             $wpdb->insert($table, array('rate_type' => 'lagos_area', 'code' => sanitize_title($label), 'label' => $label, 'amount' => $amount, 'enabled' => 1, 'sort_order' => $order++, 'created_at' => $now, 'updated_at' => $now));
         }
         $order = 0;
         foreach (self::default_state_rates() as $code => $amount) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Seeding the plugin-owned custom rates table.
             $wpdb->insert($table, array('rate_type' => 'state', 'code' => $code, 'label' => self::state_label($code), 'amount' => $amount, 'enabled' => 1, 'sort_order' => $order++, 'created_at' => $now, 'updated_at' => $now));
         }
+        self::flush_rates_cache();
     }
 
     public static function normalize_state($state): string {
@@ -158,10 +159,31 @@ final class AlmondShipping_Plugin {
 
     public static function rates(string $type, bool $enabled_only = true): array {
         global $wpdb;
+        $cache_key = 'rates_' . md5($type . '|' . (int) $enabled_only);
+        $cached = wp_cache_get($cache_key, 'almondshipping');
+        if (false !== $cached) {
+            return is_array($cached) ? $cached : array();
+        }
+
         $table = self::table_name();
-        $where = $enabled_only ? ' AND enabled = 1' : '';
-        $rows = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$table} WHERE rate_type = %s {$where} ORDER BY sort_order ASC, label ASC", $type), ARRAY_A);
-        return is_array($rows) ? $rows : array();
+        if ($enabled_only) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Reading the plugin-owned custom rates table with object-cache coverage.
+            $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i WHERE rate_type = %s AND enabled = %d ORDER BY sort_order ASC, label ASC', $table, $type, 1), ARRAY_A);
+        } else {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Reading the plugin-owned custom rates table with object-cache coverage.
+            $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i WHERE rate_type = %s ORDER BY sort_order ASC, label ASC', $table, $type), ARRAY_A);
+        }
+
+        $rows = is_array($rows) ? $rows : array();
+        wp_cache_set($cache_key, $rows, 'almondshipping', MINUTE_IN_SECONDS);
+        return $rows;
+    }
+
+    private static function flush_rates_cache(): void {
+        foreach (array('lagos_area', 'state') as $type) {
+            wp_cache_delete('rates_' . md5($type . '|1'), 'almondshipping');
+            wp_cache_delete('rates_' . md5($type . '|0'), 'almondshipping');
+        }
     }
 
     public static function parse_rate_lines(string $raw, string $type): array {
@@ -185,11 +207,14 @@ final class AlmondShipping_Plugin {
     public static function replace_rates(string $type, array $items): void {
         global $wpdb;
         $table = self::table_name();
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Updating the plugin-owned custom rates table from the admin rate editor.
         $wpdb->delete($table, array('rate_type' => $type), array('%s'));
         $now = current_time('mysql');
         foreach ($items as $order => $item) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Updating the plugin-owned custom rates table from the admin rate editor.
             $wpdb->insert($table, array('rate_type' => $type, 'code' => sanitize_text_field($item['code']), 'label' => sanitize_text_field($item['label']), 'amount' => (float) $item['amount'], 'enabled' => 1, 'sort_order' => (int) $order, 'created_at' => $now, 'updated_at' => $now));
         }
+        self::flush_rates_cache();
     }
 
     public static function match_lagos_area(string $value): ?array {
@@ -268,7 +293,7 @@ final class AlmondShipping_Plugin {
     }
 
     public function capture_checkout_area(string $post_data): void {
-        parse_str($post_data, $posted);
+        wp_parse_str($post_data, $posted);
         $state = !empty($posted['ship_to_different_address']) ? ($posted['shipping_state'] ?? '') : ($posted['billing_state'] ?? '');
         $area = sanitize_text_field($posted['billing_almondshipping_delivery_area'] ?? $posted['billing_bsn_lagos_area'] ?? '');
         if (WC()->session) {
@@ -335,8 +360,10 @@ final class AlmondShipping_Plugin {
                 self::seed_rates(true);
                 echo '<div class="notice notice-success"><p>' . esc_html__('AlmondShipping default Nigerian rates restored.', 'almondshipping-nigerian-shipping-rates') . '</p></div>';
             } else {
-                self::replace_rates('lagos_area', self::parse_rate_lines((string) wp_unslash($_POST['lagos_rates'] ?? ''), 'lagos_area'));
-                self::replace_rates('state', self::parse_rate_lines((string) wp_unslash($_POST['state_rates'] ?? ''), 'state'));
+                $lagos_rates = isset($_POST['lagos_rates']) ? sanitize_textarea_field(wp_unslash($_POST['lagos_rates'])) : '';
+                $state_rates = isset($_POST['state_rates']) ? sanitize_textarea_field(wp_unslash($_POST['state_rates'])) : '';
+                self::replace_rates('lagos_area', self::parse_rate_lines($lagos_rates, 'lagos_area'));
+                self::replace_rates('state', self::parse_rate_lines($state_rates, 'state'));
                 echo '<div class="notice notice-success"><p>' . esc_html__('AlmondShipping rates saved.', 'almondshipping-nigerian-shipping-rates') . '</p></div>';
             }
         }
@@ -417,8 +444,9 @@ function almondshipping_load_shipping_methods(): void {
             if (WC()->session) {
                 $area = (string) WC()->session->get('almondshipping_delivery_area', '');
             }
-            if (!$area && isset($_POST['post_data'])) {
-                parse_str(wp_unslash($_POST['post_data']), $posted);
+            $post_data = filter_input(INPUT_POST, 'post_data', FILTER_UNSAFE_RAW);
+            if (!$area && is_string($post_data) && '' !== $post_data) {
+                wp_parse_str($post_data, $posted);
                 $area = sanitize_text_field($posted['billing_almondshipping_delivery_area'] ?? $posted['billing_bsn_lagos_area'] ?? '');
             }
             return $area;
@@ -441,6 +469,7 @@ function almondshipping_load_shipping_methods(): void {
                 $area = AlmondShipping_Plugin::match_lagos_area($this->selected_area());
                 if ($area) {
                     $cost = (float) $area['amount'];
+                    /* translators: 1: shipping method title, 2: Lagos delivery area. */
                     $label = sprintf(__('%1$s to Lagos - %2$s', 'almondshipping-nigerian-shipping-rates'), $this->title, $area['label']);
                 }
             } else {
@@ -450,6 +479,7 @@ function almondshipping_load_shipping_methods(): void {
                         break;
                     }
                 }
+                /* translators: 1: shipping method title, 2: Nigerian state name. */
                 $label = sprintf(__('%1$s to %2$s', 'almondshipping-nigerian-shipping-rates'), $this->title, AlmondShipping_Plugin::state_label($state));
             }
             $this->add_rate(array('id' => $this->get_rate_id(), 'label' => $label, 'cost' => max(0, $cost), 'calc_tax' => 'per_order'));
