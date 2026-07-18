@@ -118,9 +118,7 @@ final class AlmondShipping_Plugin {
     public static function seed_rates(bool $force = false): void {
         global $wpdb;
         $table = self::table_name();
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Activation seeds a plugin-owned custom rates table.
-        $exists = (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i', $table));
-        if ($exists > 0 && !$force) {
+        if (!$force && get_option('almondshipping_version')) {
             return;
         }
         if ($force) {
