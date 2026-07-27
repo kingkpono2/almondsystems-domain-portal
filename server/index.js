@@ -1183,7 +1183,7 @@ app.post('/domains/api/admin/orders/:reference/hold', adminLimiter, requireAdmin
   }
 });
 
-app.get(['/domains', '/domains/', '/domains/admin'], (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
+app.get(['/domains', '/domains/', '/domains/admin', '/finbank-api'], (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 app.get('/domains/*', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 
 app.use((error, req, res, _next) => {

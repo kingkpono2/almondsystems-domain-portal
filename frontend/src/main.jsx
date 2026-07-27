@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowLeft, Check, CheckCircle2, CreditCard, Globe2, Headphones, KeyRound, Lock, LogOut, RefreshCw, Search, ShieldCheck, ShoppingCart, Sparkles, Trash2, User, X, Save, Pencil, ServerCog } from 'lucide-react';
+import { ArrowLeft, Check, CheckCircle2, CreditCard, Database, Download, ExternalLink, Globe2, Headphones, KeyRound, Landmark, Lock, LogOut, Mail, RefreshCw, Search, ServerCog, ShieldCheck, ShoppingCart, Smartphone, Sparkles, Trash2, User, Workflow, X, Save, Pencil } from 'lucide-react';
 import './styles.css';
 
 const defaultTlds = ['com', 'com.ng', 'ng', 'net', 'org', 'africa', 'co', 'io'];
@@ -11,6 +11,12 @@ const serviceSteps = [
   { icon: ShieldCheck, title: 'Admin-reviewed orders', text: 'Every paid order is reviewed before billable registration or transfer.' },
   { icon: Headphones, title: 'Launch support', text: 'Get help with DNS, hosting, email, SSL, and launch handoff.' }
 ];
+const productLinks = {
+  finbankSwagger: 'https://almondsystems.com.ng/finbank-api/docs',
+  finbankGithub: 'https://github.com/kingkpono2/finbank-nestjs',
+  internetBankingGithub: 'https://github.com/kingkpono2/internet-banking',
+  buysmartApk: 'https://github.com/kingkpono2/buysmartng-android-app/raw/main/releases/BuySmartNG.apk'
+};
 const cartStorageKey = 'almond-domain-cart-v3';
 
 function naira(value) {
@@ -47,6 +53,161 @@ function PaymentMarks() {
       <span className="card-mark amex">AMEX</span>
       <span className="card-mark transfer">Bank transfer</span>
     </div>
+  );
+}
+
+
+function FounderSection() {
+  return (
+    <section id="founder" className="founder-section">
+      <div className="founder-copy">
+        <p className="eyebrow"><User size={15} /> Founder</p>
+        <h2>Kpono-Abasi Akpabio</h2>
+        <p>
+          Kpono-Abasi leads Almond Systems with a backend-first engineering background across fintech,
+          eCommerce, ERP, document workflows, logistics, and managed launch platforms. His work focuses
+          on production APIs, distributed systems, payment flows, Redis-backed performance, RabbitMQ and
+          Kafka messaging patterns, cloud deployment, and practical systems businesses can run.
+        </p>
+      </div>
+      <div className="founder-panel">
+        <strong>Engineering focus</strong>
+        <span>Node.js, NestJS, Java, Spring Boot, Python, PostgreSQL, MongoDB, Redis, RabbitMQ, Kafka, REST, GraphQL, Docker, AWS, and GCP.</span>
+      </div>
+    </section>
+  );
+}
+
+function BackendProducts() {
+  const products = [
+    {
+      icon: Landmark,
+      label: 'Node.js / NestJS',
+      title: 'FinBank Pro API',
+      text: 'Banking API with JWT auth, accounts, transfers, ledger entries, audit logs, Redis caching, RabbitMQ events, email receipts, SMS alerts, and Swagger testing.',
+      primary: { href: productLinks.finbankSwagger, text: 'Open Swagger', icon: ExternalLink, external: true },
+      secondary: { href: productLinks.finbankGithub, text: 'GitHub', icon: ExternalLink, external: true }
+    },
+    {
+      icon: Database,
+      label: 'Java / Spring Boot',
+      title: 'Internet Banking',
+      text: 'Spring Boot banking backend with account balances, transfer flows, PostgreSQL persistence, Redis caching, Kafka outbox events, core banking adapter work, and resilience tests.',
+      primary: { href: productLinks.internetBankingGithub, text: 'GitHub', icon: ExternalLink, external: true }
+    },
+    {
+      icon: Smartphone,
+      label: 'Android mobile app',
+      title: 'BuySmartNG Android',
+      text: 'A mobile marketplace app experience for BuySmartNG customers and vendors, packaged as an installable Android APK.',
+      primary: { href: productLinks.buysmartApk, text: 'Download APK', icon: Download, external: true }
+    }
+  ];
+
+  return (
+    <section id="backend-products" className="backend-products">
+      <div className="backend-products-head">
+        <p className="eyebrow"><ServerCog size={15} /> Products</p>
+        <h2>Production-minded software from Almond Systems.</h2>
+      </div>
+      <div className="backend-product-grid">
+        {products.map(({ icon: Icon, label, title, text, primary, secondary }) => {
+          const PrimaryIcon = primary.icon;
+          const SecondaryIcon = secondary?.icon;
+          return (
+            <article key={title}>
+              <Icon size={24} />
+              <span>{label}</span>
+              <h3>{title}</h3>
+              <p>{text}</p>
+              <div className="backend-product-actions">
+                <a href={primary.href} target={primary.external ? '_blank' : undefined} rel={primary.external ? 'noreferrer' : undefined}>{PrimaryIcon && <PrimaryIcon size={17} />} {primary.text}</a>
+                {secondary && <a href={secondary.href} target={secondary.external ? '_blank' : undefined} rel={secondary.external ? 'noreferrer' : undefined}>{SecondaryIcon && <SecondaryIcon size={17} />} {secondary.text}</a>}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function FinBankProductPage() {
+  const stack = [
+    { icon: Landmark, title: 'Banking domain model', text: 'Users, accounts, transfers, transaction records, and double-entry ledger entries are separated into focused Nest modules.' },
+    { icon: Database, title: 'PostgreSQL persistence', text: 'TypeORM entities model users, accounts, notifications, audit logs, transactions, and ledger records.' },
+    { icon: ServerCog, title: 'Redis caching', text: 'A dedicated RedisModule supports account lookups and cache invalidation after successful transfers.' },
+    { icon: Workflow, title: 'RabbitMQ messaging', text: 'Transfer events are published after commit so email and SMS side effects run asynchronously.' },
+    { icon: Mail, title: 'Email receipts', text: 'SMTP-backed transfer receipts are logged as notification records for operational visibility.' },
+    { icon: Smartphone, title: 'SMS alerts', text: 'The SMS module provides a testable notification boundary that can later connect to a real SMS provider.' }
+  ];
+
+  return (
+    <main className="portal-shell finbank-page">
+      <header className="topbar finbank-topbar">
+        <a className="brand-link" href="/" aria-label="Almond Systems">
+          <img className="brand-logo" src="/assets/logo/almond-logo-live.png?v=20260717b" onError={(event) => { event.currentTarget.src = '/assets/logo/almond-systems-logo.svg'; }} alt="Almond Systems" />
+        </a>
+        <nav className="top-actions" aria-label="FinBank navigation">
+          <a href="/domains/">Domains</a>
+          <a href="#architecture">Architecture</a>
+          <a href="#founder">Founder</a>
+          <a href={productLinks.finbankGithub} target="_blank" rel="noreferrer">GitHub</a>
+        </nav>
+      </header>
+
+      <section className="finbank-hero">
+        <div className="finbank-hero-copy">
+          <p className="eyebrow"><Landmark size={15} /> Node.js / NestJS backend product</p>
+          <h1>FinBank Pro API</h1>
+          <p>
+            A senior-level NestJS banking backend built to demonstrate production API design,
+            transaction safety, caching, asynchronous messaging, observability, and clear Swagger-driven testing.
+          </p>
+          <div className="finbank-hero-actions">
+            <a className="primary-action" href={productLinks.finbankSwagger} target="_blank" rel="noreferrer"><ExternalLink size={18} /> Open Swagger</a>
+            <a className="secondary-action" href={productLinks.finbankGithub} target="_blank" rel="noreferrer"><ExternalLink size={18} /> View GitHub</a>
+          </div>
+        </div>
+        <div className="finbank-system-card" aria-label="FinBank architecture summary">
+          <span>REST API</span>
+          <strong>NestJS modules</strong>
+          <small>Auth, Users, Accounts, Transactions, Ledger, Audit, Events, Notifications, SMS</small>
+          <div className="system-lines">
+            <b>PostgreSQL</b>
+            <b>Redis</b>
+            <b>RabbitMQ</b>
+            <b>SMTP</b>
+          </div>
+        </div>
+      </section>
+
+      <section id="architecture" className="finbank-stack-grid">
+        {stack.map(({ icon: Icon, title, text }) => (
+          <article key={title}>
+            <Icon size={22} />
+            <h2>{title}</h2>
+            <p>{text}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="finbank-flow">
+        <div>
+          <p className="eyebrow"><Workflow size={15} /> Runtime flow</p>
+          <h2>Money movement stays separate from notifications.</h2>
+        </div>
+        <ol>
+          <li>JWT-authenticated customer submits a transfer request.</li>
+          <li>The service locks sender and receiver accounts, updates balances, records the transaction, and writes debit and credit ledger entries.</li>
+          <li>After commit, affected account cache keys are invalidated in Redis.</li>
+          <li>A RabbitMQ transfer.completed event is published for asynchronous side effects.</li>
+          <li>The consumer sends the email receipt, triggers SMS, and keeps the core transfer path clean.</li>
+        </ol>
+      </section>
+
+      <FounderSection />
+    </main>
   );
 }
 
@@ -351,7 +512,9 @@ function CustomerPortal() {
         <nav className="top-actions" aria-label="Domain portal navigation">
           <a href="#domains">Domains</a>
           <a href="#how-it-works">Hosting</a>
+          <a href="#backend-products">Products</a>
           <a href="#client-dashboard">Dashboard</a>
+          <a href="#founder">Founder</a>
           <a href="/downloads/">Downloads</a>
           <button className="icon-action" type="button" onClick={() => setCartOpen(true)} aria-label="Open cart">
             <ShoppingCart size={19} />
@@ -487,7 +650,7 @@ function CustomerPortal() {
                     {editingRecord && <button type="button" className="light-action" onClick={resetDnsForm}>Cancel</button>}
                   </form>
                   <div className="dns-table">
-                    {dnsRecords.length ? dnsRecords.map((record) => <article key={record.id}><span className="record-type">{record.type}</span><strong>{record.host || '@'}</strong><code>{record.answer}</code><small>TTL {record.ttl || 3600}{record.priority !== undefined ? ` · Priority ${record.priority}` : ''}</small><button type="button" onClick={() => editDnsRecord(record)}><Pencil size={15} /></button><button type="button" onClick={() => deleteDnsRecord(record)}><Trash2 size={15} /></button></article>) : <p className="muted-note">No DNS records returned for this zone.</p>}
+                    {dnsRecords.length ? dnsRecords.map((record) => <article key={record.id}><span className="record-type">{record.type}</span><strong>{record.host || '@'}</strong><code>{record.answer}</code><small>TTL {record.ttl || 3600}{record.priority !== undefined ? ` / Priority ${record.priority}` : ''}</small><button type="button" onClick={() => editDnsRecord(record)}><Pencil size={15} /></button><button type="button" onClick={() => deleteDnsRecord(record)}><Trash2 size={15} /></button></article>) : <p className="muted-note">No DNS records returned for this zone.</p>}
                   </div>
                   <form className="nameserver-panel" onSubmit={saveNameservers}>
                     <label>Nameservers<textarea value={nameserverText} onChange={(e) => setNameserverText(e.target.value)} placeholder="ns1.example.com\nns2.example.com" /></label>
@@ -504,6 +667,8 @@ function CustomerPortal() {
         {serviceSteps.map(({ icon: Icon, title, text }) => <article key={title}><Icon size={21} /><h3>{title}</h3><p>{text}</p></article>)}
       </section>
 
+      <BackendProducts />
+
       <section className="faq-panel">
         <div>
           <p className="eyebrow"><Check size={15} /> Clear next steps</p>
@@ -515,6 +680,8 @@ function CustomerPortal() {
           <article><h3>Can you help with hosting?</h3><p>Yes. Add DNS, email, SSL, or hosting notes in checkout and our team will assist.</p></article>
         </div>
       </section>
+
+      <FounderSection />
 
       <footer className="portal-footer">
         <div className="footer-grid">
@@ -534,7 +701,7 @@ function CustomerPortal() {
             <a className="footer-cta" href="https://wa.me/2349168775034?text=Hi%20Almond%20Systems%2C%20I%20need%20help%20with%20domain%20registration" target="_blank" rel="noreferrer">Talk to sales</a>
           </section>
         </div>
-        <div className="footer-bottom"><span>© 2026 Almond Systems</span><span>Domains, hosting, web applications, and managed launch support.</span></div>
+        <div className="footer-bottom"><span>(C) 2026 Almond Systems</span><span>Domains, hosting, web applications, and managed launch support.</span></div>
       </footer>
 
       <aside className={cartOpen ? 'drawer cart-drawer open' : 'drawer cart-drawer'} aria-label="Domain cart">
@@ -665,7 +832,7 @@ function AdminPortal() {
               <strong>{naira(order.payment?.amountNgn)}</strong>
             </div>
 
-            {order.items?.length ? <div className="admin-items">{order.items.map((item) => <span key={`${order.orderId}-${item.domainName}`}>{item.domainName} · {item.purchaseType}</span>)}</div> : null}
+            {order.items?.length ? <div className="admin-items">{order.items.map((item) => <span key={`${order.orderId}-${item.domainName}`}>{item.domainName} / {item.purchaseType}</span>)}</div> : null}
 
             <dl>
               <div><dt>Customer</dt><dd>{order.customer?.name}<br />{order.customer?.email}<br />{order.customer?.phone}</dd></div>
@@ -690,6 +857,12 @@ function AdminPortal() {
 }
 
 function App() {
+  const path = window.location.pathname.replace(/\/$/, '');
+
+  if (path === '/finbank-api') {
+    return <FinBankProductPage />;
+  }
+
   return window.location.pathname.startsWith('/domains/admin') ? <AdminPortal /> : <CustomerPortal />;
 }
 
